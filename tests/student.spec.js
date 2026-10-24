@@ -27,4 +27,11 @@ test('student funding normalizes grants, separates tuition, and discloses borrow
   await city.getByLabel('Funding period (months)').fill('4');
   await city.getByLabel('Grants over funding period').fill('');
   await expect(city.getByTestId('income')).toHaveText('Unknown');
+  await city.getByLabel('Groceries', { exact: true }).fill('1200');
+  await city.getByLabel('Groceries amount covers').selectOption('funding');
+  await expect(city.getByTestId('expenses')).toHaveText('$1,300');
+  await city.getByLabel('Budget scenario').selectOption('career');
+  await expect(city.getByTestId('expenses')).toHaveText('$1,300');
+  await expect(city.getByLabel('Groceries amount covers')).toBeVisible();
+  await expect(city.getByLabel('Expense funding period (months)')).toHaveValue('4');
 });

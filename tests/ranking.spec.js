@@ -17,6 +17,9 @@ test('complete comparisons sort by concrete outcomes; incomplete budgets never w
   await chicago.getByLabel('Monthly take-home income').fill('1500');
   await page.getByLabel('Compare by').selectOption('remainder');
   await expect(page.getByRole('article').first()).toHaveAttribute('aria-label', 'New York City budget');
+  await chicago.getByLabel('Monthly take-home income').fill('6000');
+  await chicago.getByLabel('Monthly take-home income').press('Tab');
+  await expect(page.getByRole('article').first()).toHaveAttribute('aria-label', 'Chicago budget');
   await nyc.getByLabel('Groceries', { exact: true }).fill('');
   await page.getByLabel('Compare by').selectOption('expenses');
   await expect(page.getByRole('article').first()).toHaveAttribute('aria-label', 'Chicago budget');

@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { readFile } from 'node:fs/promises';
 
 test('save/reload and export/import retain overrides; invalid imports preserve work', async ({ page }) => {
   await page.goto('/');
@@ -41,4 +42,25 @@ test('unavailable browser storage never claims a successful save', async ({ page
   await page.getByRole('button', { name: 'Save comparison' }).click();
   await expect(page.getByRole('alert')).toContainText('Browser storage is unavailable or full');
   await expect(page.getByRole('article')).toHaveCount(2);
+});
+
+test('import rejects executable identifiers and reference metadata before rendering', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Build my comparison' }).click();
+  const pending = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Export comparison' }).click();
+  const download = await pending;
+  const original = JSON.parse(await readFile(await download.path(), 'utf8'));
+  for (const attack of ['city-id', 'expense-id', 'bedrooms']) {
+    const imported = structuredClone(original);
+    const html = '\"><img src=x onerror="document.body.dataset.compromised=1">';
+    if (attack === 'city-id') imported.cities[0].id = html;
+    if (attack === 'expense-id') imported.cities[0].expenses.push({ ...imported.cities[0].expenses[0], id: html, name: 'Custom expense' });
+    if (attack === 'bedrooms') imported.cities[0].rentSource.bedrooms = html;
+    await page.locator('#import').setInputFiles({ name: `${attack}.json`, mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(imported)) });
+    await expect(page.getByRole('alert')).toContainText('Your current work is unchanged');
+    await expect(page.locator('body')).not.toHaveAttribute('data-compromised');
+    await expect(page.locator('img')).toHaveCount(0);
+    await expect(page.getByRole('article').first()).toHaveAttribute('aria-label', 'New York City budget');
+  }
 });

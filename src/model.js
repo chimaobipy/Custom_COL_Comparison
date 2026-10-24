@@ -40,7 +40,7 @@ export function calculate(city) {
   for (const expense of city.expenses) {
     if (!expense.applicable || (expense.name === 'Utilities' && expense.id === 'default-0' && city.utilitiesIncluded)) continue;
     if (expense.amount === null) missing++;
-    else expenses += expense.amount / (expense.period === 'funding' && city.mode === 'student' ? city.months : 1);
+    else expenses += expense.amount / (expense.period === 'funding' ? city.months : 1);
   }
   let tuition = 0;
   if (city.mode === 'student' && city.tuitionApplicable) {
@@ -69,7 +69,9 @@ export function validateComparison(value) {
   /** @param {unknown} v @returns {Preferences} */
   const prefs = v => { const p = object(v); if (![0, 1, 2, 3, 4, 5].includes(p.bedrooms) || !Number.isInteger(p.occupants) || p.occupants < 1 || p.occupants > 10 || !['Transit', 'Car', 'Walk / bike'].includes(p.transport)) return bad(); return { bedrooms: p.bedrooms, occupants: p.occupants, transport: p.transport }; };
   /** @param {unknown} v @returns {import('./types').Reference | null} */
-  const source = v => { if (v === null) return null; const s = object(v); let url; try { url = new URL(string(s.source)); } catch { return bad(); } if (url.protocol !== 'https:') return bad(); return { ...s, value: amount(s.value ?? null), source: url.href, period: string(s.period), geography: string(s.geography), population: string(s.population ?? '') }; };
+  const source = v => { if (v === null) return null; const s = object(v); let url; try { url = new URL(string(s.source)); } catch { return bad(); } if (url.protocol !== 'https:' || (s.bedrooms !== undefined && ![0,1,2,3,4,5].includes(s.bedrooms))) return bad(); return { ...s, value: amount(s.value ?? null), source: url.href, period: string(s.period), geography: string(s.geography), population: string(s.population ?? '') }; };
+  /** @param {unknown} v @returns {string} */
+  const identifier = v => typeof v === 'string' && /^[A-Za-z0-9_-]{1,100}$/.test(v) ? v : bad();
   const input = object(value);
   if (input.version !== 1 || !Array.isArray(input.cities) || input.cities.length < 2 || input.cities.length > 3) return bad();
   /** @type {Comparison} */
@@ -85,10 +87,10 @@ export function validateComparison(value) {
       const e = object(rawExpense);
       if (expenseIds.has(e.id) || !['monthly', 'funding'].includes(e.period)) return bad();
       expenseIds.add(e.id);
-      return { id: string(e.id), name: string(e.name), amount: amount(e.amount), applicable: bool(e.applicable), period: e.period, override: bool(e.override), source: source(e.source) };
+      return { id: identifier(e.id), name: string(e.name), amount: amount(e.amount), applicable: bool(e.applicable), period: e.period, override: bool(e.override), source: source(e.source) };
     });
     if (!categories.every((name, i) => expenses.some((/** @type {import('./types').Expense} */ e) => e.id === `default-${i}` && e.name === name)) || !['monthly', 'funding'].includes(c.tuitionPeriod)) return bad();
-    result.cities.push({ id: string(c.id), referenceId: string(c.referenceId), name: string(c.name), mode: c.mode,
+    result.cities.push({ id: identifier(c.id), referenceId: string(c.referenceId), name: string(c.name), mode: c.mode,
       preferences: prefs(c.preferences), income: amount(c.income), gross: amount(c.gross), totalRent: amount(c.totalRent), rentShare: amount(c.rentShare), rentOverride: bool(c.rentOverride), rentSource: source(c.rentSource), utilitiesIncluded: bool(c.utilitiesIncluded), expenses,
       savings: amount(c.savings), moving: amount(c.moving), months: c.months, funding: { work: amount(funding.work), grants: amount(funding.grants), family: amount(funding.family), loans: amount(funding.loans) }, tuition: amount(c.tuition), tuitionApplicable: bool(c.tuitionApplicable), tuitionPeriod: c.tuitionPeriod });
   }
