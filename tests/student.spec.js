@@ -1,0 +1,30 @@
+import { test, expect } from '@playwright/test';
+
+test('student funding normalizes grants, separates tuition, and discloses borrowing', async ({ page }) => {
+  await page.route('**/data/reference.json', route => route.fulfill({ json: { version: 1, retrievedAt: 'fixture', cities: [], institutions: [] } }));
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Build my comparison' }).click();
+  const city = page.getByRole('article').first();
+  await city.locator('summary').filter({ hasText: 'Edit budget' }).click();
+  await city.getByLabel('Budget scenario').selectOption('student');
+  await city.getByLabel('Work income over funding period').fill('0');
+  await city.getByLabel('Grants over funding period').fill('6000');
+  await city.getByLabel('Family support over funding period').fill('0');
+  await city.getByLabel('Loan proceeds over funding period').fill('2000');
+  await expect(city.getByTestId('income')).toHaveText('$2,000');
+  await expect(city).toContainText('Non-borrowed funding $1,500/mo');
+  await city.getByLabel('My personal rent share').fill('1000');
+  await city.getByLabel('Include tuition separately').check();
+  await city.getByLabel('Tuition amount', { exact: true }).fill('4000');
+  await expect(city.getByTestId('expenses')).toHaveText('$1,000');
+  await expect(city.getByTestId('remainder')).toHaveText('$0');
+  await city.getByLabel('Tuition amount', { exact: true }).fill('0');
+  await city.getByLabel('Monthly savings goal').fill('750');
+  await expect(city).toContainText('Meeting this savings goal relies on borrowing');
+  await city.getByLabel('Funding period (months)').fill('0');
+  await expect(city.getByLabel('Funding period (months)')).toHaveAttribute('aria-invalid', 'true');
+  await expect(city.getByTestId('income')).toHaveText('$2,000');
+  await city.getByLabel('Funding period (months)').fill('4');
+  await city.getByLabel('Grants over funding period').fill('');
+  await expect(city.getByTestId('income')).toHaveText('Unknown');
+});
